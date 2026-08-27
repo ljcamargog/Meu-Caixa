@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#10472f" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="Meu Caixa" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>Meu Caixa</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="icon" href="./icons/icon-192.png" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header class="topbar">
+      <div>
+        <h1>MEU CAIXA</h1>
+        <p id="subtitle">Abriu • lançou • pronto</p>
+      </div>
+      <button id="statusBtn" class="status-pill" type="button" aria-label="Status do aplicativo">
+        <span id="statusDot"></span><span id="statusText">Carregando</span>
+      </button>
+    </header>
+
+    <nav id="areaTabs" class="area-tabs" aria-label="Áreas">
+      <button class="area-tab active" data-area="Tudo">Tudo</button>
+      <button class="area-tab" data-area="Pessoal">Pessoal</button>
+      <button class="area-tab" data-area="Trabalho">Trabalho</button>
+      <button class="area-tab" data-area="Sítio">Sítio</button>
+    </nav>
+
+    <main id="screenHome" class="screen active">
+      <section class="balance-card">
+        <div class="balance-label">Saldo</div>
+        <div id="balanceValue" class="balance-value">R$ 0,00</div>
+        <div class="summary-row">
+          <div><span>Entrou</span><strong id="incomeValue">R$ 0,00</strong></div>
+          <div><span>Saiu</span><strong id="expenseValue">R$ 0,00</strong></div>
+        </div>
+      </section>
+
+      <section class="launch-grid">
+        <button id="incomeBtn" class="launch-btn income" type="button"><b>＋</b><span>Receita</span></button>
+        <button id="expenseBtn" class="launch-btn expense" type="button"><b>−</b><span>Despesa</span></button>
+      </section>
+
+      <section class="quick-row">
+        <button id="flashBtn" class="quick-card flash" type="button">
+          <span class="quick-icon">⚡</span>
+          <span><strong>Lançamento Flash</strong><small>Toque e lance em segundos</small></span>
+        </button>
+        <button id="transferBtn" class="quick-card transfer" type="button">
+          <span class="quick-icon">↔</span>
+          <span><strong>Transferir</strong><small>Entre áreas</small></span>
+        </button>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Últimos lançamentos</h2><button id="seeAllBtn" type="button">Ver todos</button></div>
+        <div id="recentList" class="tx-list"></div>
+      </section>
+    </main>
+
+    <main id="screenMovements" class="screen">
+      <section class="section">
+        <div class="search-row">
+          <input id="searchInput" type="search" placeholder="Buscar lançamento..." autocomplete="off" />
+        </div>
+        <div id="movementList" class="tx-list"></div>
+      </section>
+    </main>
+
+    <main id="screenSummary" class="screen">
+      <section class="summary-card">
+        <div class="summary-big"><span>Saldo</span><strong id="sumBalance">R$ 0,00</strong></div>
+        <div class="summary-two">
+          <div><span>Receitas</span><strong id="sumIncome">R$ 0,00</strong></div>
+          <div><span>Despesas</span><strong id="sumExpense">R$ 0,00</strong></div>
+        </div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Gastos por categoria</h2></div>
+        <div id="categorySummary" class="category-summary"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Recorrentes</h2><button id="addRecurringBtn" type="button">＋ Adicionar</button></div>
+        <div id="recurringList" class="tx-list"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Segurança dos dados</h2></div>
+        <div class="backup-card">
+          <p>Seus lançamentos ficam guardados neste aparelho e funcionam sem internet.</p>
+          <div class="backup-actions">
+            <button id="exportBtn" class="secondary-btn" type="button">Exportar backup</button>
+            <label class="secondary-btn file-label">Importar backup<input id="importInput" type="file" accept="application/json,.json" hidden /></label>
+          </div>
+          <small id="backupInfo">Backup recomendado periodicamente.</small>
+        </div>
+      </section>
+    </main>
+
+    <nav class="bottom-nav" aria-label="Navegação principal">
+      <button class="bottom-btn active" data-screen="Home"><span>⌂</span><b>Início</b></button>
+      <button class="bottom-btn" data-screen="Movements"><span>☷</span><b>Movimentações</b></button>
+      <button class="bottom-btn" data-screen="Summary"><span>◔</span><b>Resumo</b></button>
+    </nav>
+  </div>
+
+  <div id="modalBackdrop" class="modal-backdrop hidden">
+    <section id="entryModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small id="entryTypeLabel">Despesa</small><h3 id="entryTitle">Lançamento Flash</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+      <label class="amount-field">
+        <span>Valor</span>
+        <div><b>R$</b><input id="amountInput" inputmode="decimal" placeholder="0,00" autocomplete="off" /></div>
+      </label>
+
+      <div class="field-group">
+        <span>Área</span>
+        <div id="modalAreaTabs" class="chip-row">
+          <button class="chip active" data-modal-area="Pessoal">Pessoal</button>
+          <button class="chip" data-modal-area="Trabalho">Trabalho</button>
+          <button class="chip" data-modal-area="Sítio">Sítio</button>
+        </div>
+      </div>
+
+      <div class="field-group">
+        <span>Categoria <small>— tocar já salva</small></span>
+        <div id="categoryGrid" class="category-grid"></div>
+      </div>
+
+      <details class="details-box">
+        <summary>Adicionar detalhes</summary>
+        <input id="noteInput" type="text" placeholder="Observação (opcional)" maxlength="100" />
+      </details>
+    </section>
+
+    <section id="transferModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small>Transferência</small><h3>Mover entre áreas</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+      <label class="amount-field">
+        <span>Valor</span>
+        <div><b>R$</b><input id="transferAmount" inputmode="decimal" placeholder="0,00" autocomplete="off" /></div>
+      </label>
+      <div class="field-group"><span>Origem</span><select id="transferFrom"></select></div>
+      <div class="field-group"><span>Destino</span><select id="transferTo"></select></div>
+      <input id="transferNote" type="text" placeholder="Observação (opcional)" maxlength="100" />
+      <button id="saveTransferBtn" class="primary-btn" type="button">Transferir</button>
+    </section>
+
+    <section id="editModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small>Movimentação</small><h3>Editar lançamento</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+      <input id="editAmount" inputmode="decimal" placeholder="Valor" />
+      <select id="editArea"></select>
+      <input id="editCategory" type="text" placeholder="Categoria" />
+      <input id="editNote" type="text" placeholder="Observação" />
+      <div class="modal-actions">
+        <button id="deleteTxBtn" class="danger-outline" type="button">Excluir</button>
+        <button id="saveEditBtn" class="primary-btn" type="button">Salvar</button>
+      </div>
+    </section>
+
+    <section id="recurringModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small>Automático</small><h3>Novo recorrente</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+      <select id="recType"><option value="expense">Despesa</option><option value="income">Receita</option></select>
+      <input id="recAmount" inputmode="decimal" placeholder="Valor" />
+      <select id="recArea"></select>
+      <input id="recCategory" type="text" placeholder="Categoria" />
+      <input id="recNote" type="text" placeholder="Observação (opcional)" />
+      <label class="day-row">Dia do mês <input id="recDay" type="number" min="1" max="28" value="1" /></label>
+      <button id="saveRecurringBtn" class="primary-btn" type="button">Salvar recorrente</button>
+    </section>
+  </div>
+
+  <div id="toast" class="toast hidden"><span id="toastText"></span><button id="undoBtn" type="button">DESFAZER</button></div>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
