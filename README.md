@@ -10,3 +10,9 @@ Inclui tudo da V3 e adiciona histórico mensal.
 - O C. Rotativo permanece como obrigação contínua e não zera na virada do mês.
 
 Mantém áreas/categorias personalizáveis, C. Rotativo, iOS/Android, offline, backup, recorrentes e ícone premium.
+
+
+## V4.1
+Correção visual: o navegador mensal agora aparece explicitamente nas telas Movimentações e Resumo.
+Use ‹ e › para trocar de mês; toque no nome do mês para retornar ao mês atual.
+O cache do PWA também foi atualizado para forçar o carregamento da interface nova.
