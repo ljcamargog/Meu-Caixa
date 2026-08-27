@@ -9,8 +9,10 @@
   let EXPENSE_CATS = [...DEFAULT_EXPENSE_CATS];
   let INCOME_CATS = [...DEFAULT_INCOME_CATS];
   let categoryManageType = "expense";
+  let rotativoAction = "use";
+  let ROTATIVO_RATE = 3;
   const DB_NAME = "meu-caixa-pessoal";
-  const DB_VERSION = 1;
+  const DB_VERSION = 2;
   let db;
   let currentArea = "Tudo";
   let currentScreen = "Home";
@@ -55,6 +57,10 @@
         if(!d.objectStoreNames.contains("settings")){
           d.createObjectStore("settings",{keyPath:"key"});
         }
+        if(!d.objectStoreNames.contains("rotativo")){
+          const r=d.createObjectStore("rotativo",{keyPath:"id"});
+          r.createIndex("created_at","created_at");
+        }
       };
       req.onsuccess=()=>resolve(req.result);
       req.onerror=()=>reject(req.error);
@@ -78,6 +84,7 @@
     AREAS = await getSetting("areas", [...DEFAULT_AREAS]);
     EXPENSE_CATS = await getSetting("expense_categories", [...DEFAULT_EXPENSE_CATS]);
     INCOME_CATS = await getSetting("income_categories", [...DEFAULT_INCOME_CATS]);
+    ROTATIVO_RATE = Number(await getSetting("rotativo_rate", 3)) || 3;
     if(!Array.isArray(AREAS) || AREAS.length===0) AREAS=[...DEFAULT_AREAS];
     if(!Array.isArray(EXPENSE_CATS) || EXPENSE_CATS.length===0) EXPENSE_CATS=[...DEFAULT_EXPENSE_CATS];
     if(!Array.isArray(INCOME_CATS) || INCOME_CATS.length===0) INCOME_CATS=[...DEFAULT_INCOME_CATS];
@@ -112,7 +119,10 @@
         if(r.destination_area===area) income+=r.amount_cents;
       }
     }
-    return {income,expense,balance:income-expense};
+    const rot = (await getAll("rotativo")).filter(x=>!x.deleted_at && (area==="Tudo" || x.area===area));
+    let rotCash=0;
+    for(const r of rot){ rotCash += r.action==="use" ? r.amount_cents : -r.amount_cents; }
+    return {income,expense,balance:income-expense+rotCash};
   }
 
   async function addTx(type, amount_cents, area, category, note=""){
@@ -186,6 +196,7 @@
     const cats=Object.entries(cat).sort((a,b)=>b[1]-a[1]);
     $("#categorySummary").innerHTML=cats.length?cats.map(([n,v])=>`<div class="cat-sum"><span>${escapeHtml(n)}</span><strong>${brl(v)}</strong></div>`).join(""):`<div class="empty">Sem despesas nesta área.</div>`;
 
+    await renderRotativo();
     const rec=(await getAll("recurring")).sort((a,b)=>a.day_of_month-b.day_of_month);
     $("#recurringList").innerHTML=rec.length?rec.map(r=>`<button class="tx recurring-item" data-rec-id="${r.id}" type="button"><span class="tx-main"><span class="tx-title">${escapeHtml(r.category)}</span><span class="tx-meta">${r.area} • dia ${r.day_of_month} • ${r.active===false?"Pausado":"Ativo"}</span></span><span class="tx-amount ${r.type}">${r.type==="income"?"+":"−"} ${brl(r.amount_cents)}</span></button>`).join(""):`<div class="empty">Nenhum recorrente cadastrado.</div>`;
   }
@@ -400,6 +411,74 @@
     fillAreaSelect($("#transferTo"), $("#transferTo").value || AREAS[Math.min(1,AREAS.length-1)]);
     fillAreaSelect($("#editArea"), $("#editArea").value || AREAS[0]);
     fillAreaSelect($("#recArea"), $("#recArea").value || AREAS[0]);
+    fillAreaSelect($("#rotActionArea"), $("#rotActionArea").value || AREAS[0]);
+  }
+
+
+  async function getRotativoRows(){
+    return (await getAll("rotativo")).filter(x=>!x.deleted_at).sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
+  }
+  function monthsBetween(fromIso, to=new Date()){
+    const from=new Date(fromIso);
+    const days=Math.max(0,(to-from)/(1000*60*60*24));
+    return days/30.4375;
+  }
+  async function rotativoDebt(){
+    const rows=(await getRotativoRows()).sort((a,b)=>String(a.created_at).localeCompare(String(b.created_at)));
+    let debt=0, lastDate=null;
+    for(const r of rows){
+      const dt=new Date(r.created_at);
+      if(lastDate && debt>0){
+        const months=Math.max(0,(dt-lastDate)/(1000*60*60*24*30.4375));
+        debt *= Math.pow(1+ROTATIVO_RATE/100, months);
+      }
+      if(r.action==="use") debt += r.amount_cents;
+      else debt = Math.max(0,debt-r.amount_cents);
+      lastDate=dt;
+    }
+    if(lastDate && debt>0){
+      const months=monthsBetween(lastDate);
+      debt *= Math.pow(1+ROTATIVO_RATE/100, months);
+    }
+    return Math.round(debt);
+  }
+  async function renderRotativo(){
+    const debt=await rotativoDebt();
+    $("#rotativoDebtValue").textContent=brl(debt);
+    $("#rotativoModalDebt").textContent=brl(debt);
+    $("#rotativoRate").textContent=ROTATIVO_RATE.toFixed(2).replace(".",",")+"%";
+    $("#rotativoInterestInfo").textContent=`Juros configurados: ${ROTATIVO_RATE.toFixed(2).replace(".",",")}% ao mês`;
+    const rows=await getRotativoRows();
+    $("#rotativoList").innerHTML=rows.length?rows.map(r=>`<div class="rot-row">
+      <div><div class="rot-title">${r.action==="use"?"Crédito utilizado":"Pagamento"}${r.note?` • ${escapeHtml(r.note)}`:""}</div><div class="rot-meta">${escapeHtml(r.area)} • ${fmtDate(r.created_at)}</div></div>
+      <div class="rot-value ${r.action}">${r.action==="use"?"+":"−"} ${brl(r.amount_cents)}</div>
+    </div>`).join(""):`<div class="empty">Nenhuma movimentação no C. Rotativo.</div>`;
+  }
+  function openRotativoAction(action){
+    rotativoAction=action;
+    $("#rotActionTitle").textContent=action==="use"?"Usar rotativo":"Pagar rotativo";
+    $("#rotActionSmall").textContent=action==="use"?"Entrada de crédito":"Redução do saldo devedor";
+    $("#saveRotActionBtn").textContent=action==="use"?"Confirmar uso":"Confirmar pagamento";
+    $("#rotActionAmount").value="";$("#rotActionNote").value="";
+    fillAreaSelect($("#rotActionArea"), currentArea==="Tudo"?AREAS[0]:currentArea);
+    openModal("rotativoActionModal");
+    setTimeout(()=>$("#rotActionAmount").focus(),180);
+  }
+  async function saveRotativoAction(){
+    const cents=parseMoney($("#rotActionAmount").value);
+    if(cents<=0){alert("Informe um valor válido.");return;}
+    if(rotativoAction==="pay"){
+      const debt=await rotativoDebt();
+      if(cents>debt && debt>0 && !confirm("O pagamento informado é maior que o saldo devedor estimado. Deseja continuar?")) return;
+    }
+    await put("rotativo",{id:id(),action:rotativoAction,amount_cents:cents,area:$("#rotActionArea").value,note:$("#rotActionNote").value.trim(),created_at:nowIso(),updated_at:nowIso(),deleted_at:null});
+    closeModal();await refreshAll();await renderRotativo();
+  }
+  async function editRotativoRate(){
+    const v=prompt("Taxa de juros mensal do C. Rotativo (%):",String(ROTATIVO_RATE).replace(".",","));
+    if(v===null)return;
+    const n=Number(v.replace(",",".")); if(!Number.isFinite(n)||n<0||n>100){alert("Informe uma taxa válida.");return;}
+    ROTATIVO_RATE=n;await setSetting("rotativo_rate",n);await renderRotativo();await refreshAll();
   }
 
   async function init(){
@@ -412,6 +491,7 @@
     fillAreaSelect($("#transferTo"),AREAS[Math.min(1,AREAS.length-1)]);
     fillAreaSelect($("#editArea"),AREAS[0]);
     fillAreaSelect($("#recArea"),AREAS[0]);
+    fillAreaSelect($("#rotActionArea"),AREAS[0]);
 
     window.addEventListener("online",setStatus);
     window.addEventListener("offline",setStatus);
@@ -484,6 +564,12 @@
       const rn=e.target.closest("[data-rename-cat]"); if(rn)renameCategory(rn.dataset.renameCat);
       const rm=e.target.closest("[data-remove-cat]"); if(rm)removeCategory(rm.dataset.removeCat);
     });
+
+    $("#rotativoPanelBtn").addEventListener("click",async()=>{await renderRotativo();openModal("rotativoModal");});
+    $("#useRotativoBtn").addEventListener("click",()=>openRotativoAction("use"));
+    $("#payRotativoBtn").addEventListener("click",()=>openRotativoAction("pay"));
+    $("#saveRotActionBtn").addEventListener("click",saveRotativoAction);
+    $("#editRateBtn").addEventListener("click",editRotativoRate);
 
     if("serviceWorker" in navigator){
       try{ await navigator.serviceWorker.register("./sw.js"); }catch(e){ console.warn("SW",e); }

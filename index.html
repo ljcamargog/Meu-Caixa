@@ -39,6 +39,9 @@
           <div><span>Entrou</span><strong id="incomeValue">R$ 0,00</strong></div>
           <div><span>Saiu</span><strong id="expenseValue">R$ 0,00</strong></div>
         </div>
+        <button id="rotativoPanelBtn" class="rotativo-strip" type="button">
+          <span>🏦 C. Rotativo</span><strong id="rotativoDebtValue">R$ 0,00</strong><small>Ver controle ›</small>
+        </button>
       </section>
 
       <section class="launch-grid">
@@ -217,6 +220,50 @@
       </div>
       <div id="categoriesManageList" class="manage-list"></div>
       <small class="helper">Categorias criadas por você podem ser renomeadas ou excluídas.</small>
+    </section>
+
+    <section id="rotativoModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small>Crédito bancário</small><h3>🏦 C. Rotativo</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+
+      <div class="rotativo-balance">
+        <span>Saldo devedor estimado</span>
+        <strong id="rotativoModalDebt">R$ 0,00</strong>
+        <small id="rotativoInterestInfo">Juros configurados: 3% ao mês</small>
+      </div>
+
+      <div class="rotativo-actions">
+        <button id="useRotativoBtn" class="rot-use" type="button"><b>＋</b><span>Usar rotativo</span></button>
+        <button id="payRotativoBtn" class="rot-pay" type="button"><b>−</b><span>Pagar rotativo</span></button>
+      </div>
+
+      <div class="field-group">
+        <div class="field-title-row"><span>Taxa mensal</span><button id="editRateBtn" class="mini-link" type="button">Alterar</button></div>
+        <div class="rate-display"><strong id="rotativoRate">3,00%</strong><span>ao mês</span></div>
+      </div>
+
+      <div class="section-head rot-head"><h2>Movimentações do rotativo</h2></div>
+      <div id="rotativoList" class="tx-list"></div>
+      <small class="helper">O valor usado no rotativo aumenta seu caixa, mas não é contado como receita. O pagamento reduz o caixa e o saldo devedor, sem ser contado como despesa comum.</small>
+    </section>
+
+    <section id="rotativoActionModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small id="rotActionSmall">C. Rotativo</small><h3 id="rotActionTitle">Usar rotativo</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+      <label class="amount-field">
+        <span>Valor</span>
+        <div><b>R$</b><input id="rotActionAmount" inputmode="decimal" placeholder="0,00" autocomplete="off" /></div>
+      </label>
+      <div class="field-group">
+        <span>Área do caixa</span>
+        <select id="rotActionArea"></select>
+      </div>
+      <input id="rotActionNote" type="text" placeholder="Observação (opcional)" maxlength="100" />
+      <button id="saveRotActionBtn" class="primary-btn" type="button">Confirmar</button>
     </section>
   </div>
 

@@ -1,30 +1,25 @@
-# Meu Caixa Pessoal — PWA V2
+# Meu Caixa Pessoal — PWA V3
 
-Versão finalizada para uso pessoal em iPhone e Android.
+Inclui tudo da V2 e adiciona o controle **🏦 C. Rotativo**.
 
-## Novidades da V2
-- Áreas totalmente personalizáveis.
-- Crie novas áreas pelo próprio app, por exemplo: Escola, Família, Viagem, Fazenda etc.
-- Renomeie áreas existentes.
-- Exclua áreas que ainda não possuem lançamentos.
-- Categorias de receita e despesa totalmente personalizáveis.
-- Crie, renomeie e exclua categorias pelo próprio app.
-- Novo ícone premium Meu Caixa.
-- Mesmo app e mesmas funções no iOS e Android.
-- Continua funcionando online e offline.
-- Continua com PWA instalável pela tela inicial.
-- Mantém Lançamento Flash, transferências, histórico, resumo, recorrentes e backup.
+## C. Rotativo
+- Mostra o saldo devedor estimado diretamente no painel.
+- "Usar rotativo": aumenta o saldo disponível da área escolhida, mas NÃO conta como receita.
+- "Pagar rotativo": reduz o saldo disponível e o saldo devedor, mas NÃO conta como despesa comum.
+- Taxa mensal configurável; padrão: 3% ao mês.
+- Histórico separado de usos e pagamentos.
+- Juros estimados de forma proporcional ao tempo entre movimentações.
 
-## Atualização no GitHub Pages
-Substitua os arquivos do repositório pelos arquivos desta pasta.
-O arquivo `sw.js` usa um novo cache (`meu-caixa-pessoal-v2`), então o app atualizará os arquivos offline.
+## Também mantém
+- Áreas personalizáveis
+- Categorias personalizáveis
+- iPhone e Android
+- Online/offline
+- Lançamento Flash
+- Transferências
+- Recorrentes
+- Backup
+- Ícone premium
 
-## iPhone
-Safari → Compartilhar → Adicionar à Tela de Início.
-
-## Android
-Chrome → menu ⋮ → Instalar app / Adicionar à tela inicial.
-
-## Dados
-Os lançamentos permanecem no armazenamento do navegador/PWA do aparelho.
-Recomendado usar Exportar backup periodicamente.
+## Atualização
+Envie os arquivos desta pasta ao mesmo repositório GitHub Pages, substituindo os atuais.

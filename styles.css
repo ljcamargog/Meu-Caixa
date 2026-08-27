@@ -84,3 +84,12 @@ button{cursor:pointer}
 .segmented{display:grid;grid-template-columns:1fr 1fr;background:#eef3f0;border-radius:13px;padding:4px;margin-bottom:12px}
 .seg{border:0;background:transparent;border-radius:10px;padding:9px;font-size:11px;font-weight:900;color:#647168}
 .seg.active{background:#fff;color:#176b3a;box-shadow:0 2px 8px rgba(20,60,40,.08)}
+
+.rotativo-strip{width:100%;margin-top:10px;border:1px solid rgba(255,255,255,.13);background:rgba(255,255,255,.075);border-radius:13px;padding:9px 11px;color:#fff;display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;text-align:left}
+.rotativo-strip span{font-size:11px;font-weight:800;opacity:.82}.rotativo-strip strong{font-size:13px;text-align:right}.rotativo-strip small{font-size:9px;opacity:.68}
+.rotativo-balance{background:linear-gradient(145deg,#172e23,#103f2c);color:#fff;border-radius:19px;padding:16px;margin-bottom:11px}
+.rotativo-balance span,.rotativo-balance strong,.rotativo-balance small{display:block}.rotativo-balance span{font-size:11px;opacity:.72}.rotativo-balance strong{font-size:30px;margin:3px 0;font-weight:900}.rotativo-balance small{font-size:10px;opacity:.65}
+.rotativo-actions{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-bottom:12px}.rotativo-actions button{border:0;border-radius:15px;padding:12px 8px;color:#fff;font-weight:900;display:flex;align-items:center;justify-content:center;gap:5px}.rotativo-actions b{font-size:20px}.rot-use{background:#355e8e}.rot-pay{background:#1d8b51}
+.rate-display{background:#f4f8f5;border-radius:14px;padding:11px 13px;display:flex;align-items:baseline;gap:6px}.rate-display strong{font-size:19px;color:#10472f}.rate-display span{font-size:10px;color:#69736d}
+.rot-head{margin-top:15px}.rot-head h2{font-size:16px}
+.rot-row{background:#fff;border:1px solid #edf2ee;border-radius:14px;padding:11px 12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.rot-row .rot-title{font-weight:900;font-size:12px}.rot-row .rot-meta{font-size:9px;color:#69736d;margin-top:3px}.rot-row .rot-value{font-weight:900;font-size:12px;align-self:center}.rot-row .rot-value.use{color:#355e8e}.rot-row .rot-value.pay{color:#17844b}
