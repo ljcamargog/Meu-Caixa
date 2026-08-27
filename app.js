@@ -11,6 +11,8 @@
   let categoryManageType = "expense";
   let rotativoAction = "use";
   let ROTATIVO_RATE = 3;
+  let selectedMonth = new Date();
+  selectedMonth.setDate(1);
   const DB_NAME = "meu-caixa-pessoal";
   const DB_VERSION = 2;
   let db;
@@ -103,13 +105,39 @@
     const all=(await getAll("transactions")).filter(x=>!x.deleted_at);
     return all.sort((a,b)=>String(b.created_at).localeCompare(String(a.created_at)));
   }
+  function monthKey(d){ return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}`; }
+  function rowMonth(iso){ const d=new Date(iso); return monthKey(d); }
+  function monthTitle(d){
+    const s=d.toLocaleDateString("pt-BR",{month:"long",year:"numeric"});
+    return s.charAt(0).toUpperCase()+s.slice(1);
+  }
+  function isCurrentMonth(d){
+    const n=new Date(); return d.getFullYear()===n.getFullYear() && d.getMonth()===n.getMonth();
+  }
+  function renderMonthLabels(){
+    ["#monthLabel","#summaryMonthLabel"].forEach(sel=>{
+      const el=$(sel); if(!el)return;
+      el.textContent=monthTitle(selectedMonth);
+      el.classList.toggle("current",isCurrentMonth(selectedMonth));
+    });
+  }
+  function changeMonth(delta){
+    selectedMonth=new Date(selectedMonth.getFullYear(),selectedMonth.getMonth()+delta,1);
+    renderMonthLabels(); refreshAll();
+  }
+  async function filteredTransactionsForMonth(area=currentArea){
+    const rows=await filteredTransactions(area);
+    const key=monthKey(selectedMonth);
+    return rows.filter(r=>rowMonth(r.created_at)===key);
+  }
+
   async function filteredTransactions(area=currentArea){
     const all=await getTransactions();
     if(area==="Tudo") return all;
     return all.filter(x=>x.area===area || (x.type==="transfer" && x.destination_area===area));
   }
   async function summary(area=currentArea){
-    const rows=await filteredTransactions(area);
+    const rows=(currentScreen==="Movements" || currentScreen==="Summary") ? await filteredTransactionsForMonth(area) : await filteredTransactions(area);
     let income=0,expense=0;
     for(const r of rows){
       if(r.type==="income") income+=r.amount_cents;
@@ -184,15 +212,16 @@
     $("#sumIncome").textContent=brl(s.income);
     $("#sumExpense").textContent=brl(s.expense);
 
-    const rows=await filteredTransactions();
-    $("#recentList").innerHTML=rows.length?rows.slice(0,4).map(txHtml).join(""):`<div class="empty">Nenhum lançamento ainda.</div>`;
+    const allRows=await filteredTransactions();
+    const monthRows=await filteredTransactionsForMonth();
+    $("#recentList").innerHTML=allRows.length?allRows.slice(0,4).map(txHtml).join(""):`<div class="empty">Nenhum lançamento ainda.</div>`;
 
     const q=$("#searchInput")?.value?.trim().toLowerCase()||"";
-    const found=q?rows.filter(t=>`${t.category} ${t.note||""} ${t.amount_cents}`.toLowerCase().includes(q)):rows;
+    const found=q?monthRows.filter(t=>`${t.category} ${t.note||""} ${t.amount_cents}`.toLowerCase().includes(q)):monthRows;
     $("#movementList").innerHTML=found.length?found.map(txHtml).join(""):`<div class="empty">Nenhum lançamento encontrado.</div>`;
 
     const cat={};
-    rows.filter(r=>r.type==="expense").forEach(r=>cat[r.category]=(cat[r.category]||0)+r.amount_cents);
+    monthRows.filter(r=>r.type==="expense").forEach(r=>cat[r.category]=(cat[r.category]||0)+r.amount_cents);
     const cats=Object.entries(cat).sort((a,b)=>b[1]-a[1]);
     $("#categorySummary").innerHTML=cats.length?cats.map(([n,v])=>`<div class="cat-sum"><span>${escapeHtml(n)}</span><strong>${brl(v)}</strong></div>`).join(""):`<div class="empty">Sem despesas nesta área.</div>`;
 
@@ -487,6 +516,7 @@
     renderAreaTabs();
     await generateRecurring();
     setStatus();
+    renderMonthLabels();
     fillAreaSelect($("#transferFrom"),AREAS[0]);
     fillAreaSelect($("#transferTo"),AREAS[Math.min(1,AREAS.length-1)]);
     fillAreaSelect($("#editArea"),AREAS[0]);
@@ -497,6 +527,10 @@
     window.addEventListener("offline",setStatus);
 
     $$(".bottom-btn").forEach(b=>b.addEventListener("click",()=>showScreen(b.dataset.screen)));
+    $$("[data-month-prev]").forEach(b=>b.addEventListener("click",()=>changeMonth(-1)));
+    $$("[data-month-next]").forEach(b=>b.addEventListener("click",()=>changeMonth(1)));
+    $("#monthLabel").addEventListener("click",()=>{selectedMonth=new Date();selectedMonth.setDate(1);renderMonthLabels();refreshAll();});
+    $("#summaryMonthLabel").addEventListener("click",()=>{selectedMonth=new Date();selectedMonth.setDate(1);renderMonthLabels();refreshAll();});
     $("#seeAllBtn").addEventListener("click",()=>showScreen("Movements"));
     $("#incomeBtn").addEventListener("click",()=>openEntry("income"));
     $("#expenseBtn").addEventListener("click",()=>openEntry("expense"));
