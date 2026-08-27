@@ -26,12 +26,10 @@
       </button>
     </header>
 
-    <nav id="areaTabs" class="area-tabs" aria-label="Áreas">
-      <button class="area-tab active" data-area="Tudo">Tudo</button>
-      <button class="area-tab" data-area="Pessoal">Pessoal</button>
-      <button class="area-tab" data-area="Trabalho">Trabalho</button>
-      <button class="area-tab" data-area="Sítio">Sítio</button>
-    </nav>
+    <div class="areas-wrap">
+      <nav id="areaTabs" class="area-tabs" aria-label="Áreas"></nav>
+      <button id="manageAreasBtn" class="manage-mini" type="button">＋ Área</button>
+    </div>
 
     <main id="screenHome" class="screen active">
       <section class="balance-card">
@@ -134,7 +132,10 @@
       </div>
 
       <div class="field-group">
-        <span>Categoria <small>— tocar já salva</small></span>
+        <div class="field-title-row">
+          <span>Categoria <small>— tocar já salva</small></span>
+          <button id="manageCategoriesBtn" class="mini-link" type="button">＋ Nova categoria</button>
+        </div>
         <div id="categoryGrid" class="category-grid"></div>
       </div>
 
@@ -186,6 +187,36 @@
       <input id="recNote" type="text" placeholder="Observação (opcional)" />
       <label class="day-row">Dia do mês <input id="recDay" type="number" min="1" max="28" value="1" /></label>
       <button id="saveRecurringBtn" class="primary-btn" type="button">Salvar recorrente</button>
+    </section>
+
+    <section id="areasModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small>Organização</small><h3>Minhas áreas</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+      <div class="create-row">
+        <input id="newAreaInput" type="text" placeholder="Ex.: Escola, Família, Viagem" maxlength="30" />
+        <button id="addAreaBtn" class="primary-inline" type="button">Adicionar</button>
+      </div>
+      <div id="areasManageList" class="manage-list"></div>
+      <small class="helper">As áreas padrão podem ser renomeadas. Áreas sem lançamentos podem ser excluídas.</small>
+    </section>
+
+    <section id="categoriesModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small>Organização</small><h3>Minhas categorias</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+      <div class="segmented">
+        <button class="seg active" data-cat-type="expense" type="button">Despesas</button>
+        <button class="seg" data-cat-type="income" type="button">Receitas</button>
+      </div>
+      <div class="create-row">
+        <input id="newCategoryInput" type="text" placeholder="Ex.: Escola, Ração, Farmácia" maxlength="40" />
+        <button id="addCategoryBtn" class="primary-inline" type="button">Adicionar</button>
+      </div>
+      <div id="categoriesManageList" class="manage-list"></div>
+      <small class="helper">Categorias criadas por você podem ser renomeadas ou excluídas.</small>
     </section>
   </div>
 

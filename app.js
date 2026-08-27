@@ -2,9 +2,13 @@
 (() => {
   "use strict";
 
-  const AREAS = ["Pessoal","Trabalho","Sítio"];
-  const EXPENSE_CATS = ["⛽ Combustível","🍔 Alimentação","🛒 Mercado","🧾 Contas","🐂 Gado","🔧 Manutenção","➕ Outros"];
-  const INCOME_CATS = ["💵 Venda","💼 Salário","🐂 Venda de gado","↩️ Recebimento","➕ Outros"];
+  const DEFAULT_AREAS = ["Pessoal","Trabalho","Sítio"];
+  const DEFAULT_EXPENSE_CATS = ["⛽ Combustível","🍔 Alimentação","🛒 Mercado","🧾 Contas","🐂 Gado","🔧 Manutenção","➕ Outros"];
+  const DEFAULT_INCOME_CATS = ["💵 Venda","💼 Salário","🐂 Venda de gado","↩️ Recebimento","➕ Outros"];
+  let AREAS = [...DEFAULT_AREAS];
+  let EXPENSE_CATS = [...DEFAULT_EXPENSE_CATS];
+  let INCOME_CATS = [...DEFAULT_INCOME_CATS];
+  let categoryManageType = "expense";
   const DB_NAME = "meu-caixa-pessoal";
   const DB_VERSION = 1;
   let db;
@@ -62,6 +66,31 @@
   async function getAll(store){ return reqP(txStore(store).getAll()); }
   async function put(store,obj){ return reqP(txStore(store,"readwrite").put(obj)); }
   async function del(store,key){ return reqP(txStore(store,"readwrite").delete(key)); }
+
+  async function getSetting(key, fallback){
+    const row = await reqP(txStore("settings").get(key));
+    return row ? row.value : fallback;
+  }
+  async function setSetting(key, value){
+    await put("settings",{key,value,updated_at:nowIso()});
+  }
+  async function loadCustomStructure(){
+    AREAS = await getSetting("areas", [...DEFAULT_AREAS]);
+    EXPENSE_CATS = await getSetting("expense_categories", [...DEFAULT_EXPENSE_CATS]);
+    INCOME_CATS = await getSetting("income_categories", [...DEFAULT_INCOME_CATS]);
+    if(!Array.isArray(AREAS) || AREAS.length===0) AREAS=[...DEFAULT_AREAS];
+    if(!Array.isArray(EXPENSE_CATS) || EXPENSE_CATS.length===0) EXPENSE_CATS=[...DEFAULT_EXPENSE_CATS];
+    if(!Array.isArray(INCOME_CATS) || INCOME_CATS.length===0) INCOME_CATS=[...DEFAULT_INCOME_CATS];
+  }
+  function renderAreaTabs(){
+    const tabs = ['Tudo', ...AREAS];
+    $("#areaTabs").innerHTML = tabs.map(a=>`<button class="area-tab ${a===currentArea?"active":""}" data-area="${escapeHtml(a)}">${escapeHtml(a)}</button>`).join("");
+    $$("#areaTabs .area-tab").forEach(b=>b.addEventListener("click",async()=>{
+      currentArea=b.dataset.area;
+      renderAreaTabs();
+      await refreshAll();
+    }));
+  }
 
   async function getTransactions(){
     const all=(await getAll("transactions")).filter(x=>!x.deleted_at);
@@ -174,7 +203,7 @@
 
   function openEntry(type){
     launchType=type;
-    modalArea=currentArea==="Tudo"?"Pessoal":currentArea;
+    modalArea=currentArea==="Tudo"?AREAS[0]:currentArea;
     $("#entryTypeLabel").textContent=type==="income"?"Receita":"Despesa";
     $("#entryTitle").textContent="Lançamento Flash";
     $("#amountInput").value="";
@@ -275,31 +304,126 @@
     if(choice){rec.active=rec.active===false;rec.updated_at=nowIso();await put("recurring",rec);await refreshAll();}
   }
 
+
+  async function renderAreasManage(){
+    const txs = await getTransactions();
+    $("#areasManageList").innerHTML = AREAS.map(a=>{
+      const count = txs.filter(t=>t.area===a || t.destination_area===a).length;
+      return `<div class="manage-item" data-area-name="${escapeHtml(a)}">
+        <div class="manage-item-main"><div class="manage-item-name">${escapeHtml(a)}</div><div class="manage-item-meta">${count} lançamento${count===1?"":"s"}</div></div>
+        <div class="manage-actions"><button class="rename-btn" data-rename-area="${escapeHtml(a)}">Renomear</button><button class="remove-btn" data-remove-area="${escapeHtml(a)}">Excluir</button></div>
+      </div>`;
+    }).join("");
+  }
+
+  async function addArea(){
+    const name=$("#newAreaInput").value.trim();
+    if(!name)return;
+    if(name.toLowerCase()==="tudo".toLowerCase() || AREAS.some(a=>a.toLowerCase()===name.toLowerCase())){alert("Essa área já existe.");return;}
+    AREAS.push(name); await setSetting("areas",AREAS); $("#newAreaInput").value="";
+    renderAreaTabs(); await renderAreasManage(); refreshSelects();
+  }
+
+  async function renameArea(oldName){
+    const next=prompt("Novo nome da área:",oldName)?.trim();
+    if(!next || next===oldName)return;
+    if(next.toLowerCase()==="tudo" || AREAS.some(a=>a!==oldName && a.toLowerCase()===next.toLowerCase())){alert("Esse nome já está em uso.");return;}
+    const txs=await getAll("transactions");
+    for(const t of txs){
+      let changed=false;
+      if(t.area===oldName){t.area=next;changed=true;}
+      if(t.destination_area===oldName){t.destination_area=next;changed=true;}
+      if(changed){t.updated_at=nowIso();await put("transactions",t);}
+    }
+    const recs=await getAll("recurring");
+    for(const r of recs){if(r.area===oldName){r.area=next;r.updated_at=nowIso();await put("recurring",r);}}
+    AREAS=AREAS.map(a=>a===oldName?next:a); await setSetting("areas",AREAS);
+    if(currentArea===oldName) currentArea=next;
+    renderAreaTabs(); refreshSelects(); await renderAreasManage(); await refreshAll();
+  }
+
+  async function removeArea(name){
+    const txs=await getTransactions();
+    const used=txs.some(t=>t.area===name || t.destination_area===name);
+    const recs=(await getAll("recurring")).some(r=>r.area===name);
+    if(used||recs){alert("Essa área possui lançamentos ou recorrentes. Renomeie-a ou mova os registros antes de excluir.");return;}
+    if(AREAS.length<=1){alert("É preciso manter pelo menos uma área.");return;}
+    if(!confirm(`Excluir a área "${name}"?`))return;
+    AREAS=AREAS.filter(a=>a!==name); await setSetting("areas",AREAS);
+    if(currentArea===name) currentArea="Tudo";
+    renderAreaTabs(); refreshSelects(); await renderAreasManage(); await refreshAll();
+  }
+
+  function categoryArray(type){ return type==="income"?INCOME_CATS:EXPENSE_CATS; }
+  async function saveCategoryArray(type, arr){
+    if(type==="income"){INCOME_CATS=arr;await setSetting("income_categories",arr);}
+    else {EXPENSE_CATS=arr;await setSetting("expense_categories",arr);}
+  }
+  async function renderCategoriesManage(){
+    const arr=categoryArray(categoryManageType);
+    $("#categoriesManageList").innerHTML=arr.map(c=>`<div class="manage-item">
+      <div class="manage-item-main"><div class="manage-item-name">${escapeHtml(c)}</div></div>
+      <div class="manage-actions"><button class="rename-btn" data-rename-cat="${escapeHtml(c)}">Renomear</button><button class="remove-btn" data-remove-cat="${escapeHtml(c)}">Excluir</button></div>
+    </div>`).join("");
+  }
+  async function addCategory(){
+    const name=$("#newCategoryInput").value.trim(); if(!name)return;
+    let arr=[...categoryArray(categoryManageType)];
+    if(arr.some(c=>c.toLowerCase()===name.toLowerCase())){alert("Essa categoria já existe.");return;}
+    arr.push(name); await saveCategoryArray(categoryManageType,arr); $("#newCategoryInput").value="";
+    await renderCategoriesManage(); renderCategories();
+  }
+  async function renameCategory(oldName){
+    const next=prompt("Novo nome da categoria:",oldName)?.trim();if(!next||next===oldName)return;
+    let arr=[...categoryArray(categoryManageType)];
+    if(arr.some(c=>c!==oldName && c.toLowerCase()===next.toLowerCase())){alert("Esse nome já está em uso.");return;}
+    const txs=await getAll("transactions");
+    for(const t of txs){if(t.type===categoryManageType && t.category===oldName){t.category=next;t.updated_at=nowIso();await put("transactions",t);}}
+    const recs=await getAll("recurring");
+    for(const r of recs){if(r.type===categoryManageType && r.category===oldName){r.category=next;r.updated_at=nowIso();await put("recurring",r);}}
+    arr=arr.map(c=>c===oldName?next:c);await saveCategoryArray(categoryManageType,arr);
+    await renderCategoriesManage();renderCategories();await refreshAll();
+  }
+  async function removeCategory(name){
+    const txs=await getTransactions();
+    const used=txs.some(t=>t.type===categoryManageType && t.category===name);
+    const recs=(await getAll("recurring")).some(r=>r.type===categoryManageType && r.category===name);
+    if(used||recs){alert("Essa categoria já está sendo usada. Renomeie-a em vez de excluir.");return;}
+    let arr=categoryArray(categoryManageType);
+    if(arr.length<=1){alert("É preciso manter pelo menos uma categoria.");return;}
+    if(!confirm(`Excluir a categoria "${name}"?`))return;
+    arr=arr.filter(c=>c!==name);await saveCategoryArray(categoryManageType,arr);
+    await renderCategoriesManage();renderCategories();
+  }
+  function refreshSelects(){
+    fillAreaSelect($("#transferFrom"), $("#transferFrom").value || AREAS[0]);
+    fillAreaSelect($("#transferTo"), $("#transferTo").value || AREAS[Math.min(1,AREAS.length-1)]);
+    fillAreaSelect($("#editArea"), $("#editArea").value || AREAS[0]);
+    fillAreaSelect($("#recArea"), $("#recArea").value || AREAS[0]);
+  }
+
   async function init(){
     db=await openDB();
+    await loadCustomStructure();
+    renderAreaTabs();
     await generateRecurring();
     setStatus();
-    fillAreaSelect($("#transferFrom"),"Pessoal");
-    fillAreaSelect($("#transferTo"),"Trabalho");
-    fillAreaSelect($("#editArea"),"Pessoal");
-    fillAreaSelect($("#recArea"),"Pessoal");
+    fillAreaSelect($("#transferFrom"),AREAS[0]);
+    fillAreaSelect($("#transferTo"),AREAS[Math.min(1,AREAS.length-1)]);
+    fillAreaSelect($("#editArea"),AREAS[0]);
+    fillAreaSelect($("#recArea"),AREAS[0]);
 
     window.addEventListener("online",setStatus);
     window.addEventListener("offline",setStatus);
 
-    $$(".area-tab").forEach(b=>b.addEventListener("click",async()=>{
-      currentArea=b.dataset.area;
-      $$(".area-tab").forEach(x=>x.classList.toggle("active",x===b));
-      await refreshAll();
-    }));
     $$(".bottom-btn").forEach(b=>b.addEventListener("click",()=>showScreen(b.dataset.screen)));
     $("#seeAllBtn").addEventListener("click",()=>showScreen("Movements"));
     $("#incomeBtn").addEventListener("click",()=>openEntry("income"));
     $("#expenseBtn").addEventListener("click",()=>openEntry("expense"));
     $("#flashBtn").addEventListener("click",()=>openEntry("expense"));
     $("#transferBtn").addEventListener("click",()=>{
-      fillAreaSelect($("#transferFrom"),currentArea==="Tudo"?"Pessoal":currentArea);
-      fillAreaSelect($("#transferTo"),currentArea==="Trabalho"?"Pessoal":"Trabalho");
+      fillAreaSelect($("#transferFrom"),currentArea==="Tudo"?AREAS[0]:currentArea);
+      fillAreaSelect($("#transferTo"),AREAS.find(a=>a!==$("#transferFrom").value)||AREAS[0]);
       $("#transferAmount").value="";$("#transferNote").value="";openModal("transferModal");
     });
     $$("#modalAreaTabs .chip").forEach(b=>b.addEventListener("click",()=>{
@@ -329,11 +453,37 @@
 
     $("#addRecurringBtn").addEventListener("click",()=>{
       $("#recAmount").value="";$("#recCategory").value="";$("#recNote").value="";$("#recDay").value="1";
-      fillAreaSelect($("#recArea"),currentArea==="Tudo"?"Pessoal":currentArea);openModal("recurringModal");
+      fillAreaSelect($("#recArea"),currentArea==="Tudo"?AREAS[0]:currentArea);openModal("recurringModal");
     });
     $("#saveRecurringBtn").addEventListener("click",saveRecurring);
     $("#exportBtn").addEventListener("click",exportBackup);
     $("#importInput").addEventListener("change",e=>{const f=e.target.files?.[0];if(f)importBackup(f);e.target.value="";});
+
+    $("#manageAreasBtn").addEventListener("click",async()=>{await renderAreasManage();openModal("areasModal");});
+    $("#addAreaBtn").addEventListener("click",addArea);
+    $("#newAreaInput").addEventListener("keydown",e=>{if(e.key==="Enter")addArea();});
+    $("#areasManageList").addEventListener("click",e=>{
+      const rn=e.target.closest("[data-rename-area]"); if(rn)renameArea(rn.dataset.renameArea);
+      const rm=e.target.closest("[data-remove-area]"); if(rm)removeArea(rm.dataset.removeArea);
+    });
+
+    $("#manageCategoriesBtn").addEventListener("click",async()=>{
+      categoryManageType=launchType;
+      $$(".seg").forEach(x=>x.classList.toggle("active",x.dataset.catType===categoryManageType));
+      await renderCategoriesManage();
+      openModal("categoriesModal");
+    });
+    $$(".seg").forEach(b=>b.addEventListener("click",async()=>{
+      categoryManageType=b.dataset.catType;
+      $$(".seg").forEach(x=>x.classList.toggle("active",x===b));
+      await renderCategoriesManage();
+    }));
+    $("#addCategoryBtn").addEventListener("click",addCategory);
+    $("#newCategoryInput").addEventListener("keydown",e=>{if(e.key==="Enter")addCategory();});
+    $("#categoriesManageList").addEventListener("click",e=>{
+      const rn=e.target.closest("[data-rename-cat]"); if(rn)renameCategory(rn.dataset.renameCat);
+      const rm=e.target.closest("[data-remove-cat]"); if(rm)removeCategory(rm.dataset.removeCat);
+    });
 
     if("serviceWorker" in navigator){
       try{ await navigator.serviceWorker.register("./sw.js"); }catch(e){ console.warn("SW",e); }

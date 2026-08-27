@@ -1,49 +1,30 @@
-# Meu Caixa Pessoal — PWA
+# Meu Caixa Pessoal — PWA V2
 
-Esta é a versão para uso pessoal, no mesmo estilo de um app aberto por link no navegador.
+Versão finalizada para uso pessoal em iPhone e Android.
 
-## Como funciona
-- Abre por um link HTTPS.
-- No iPhone: Safari → Compartilhar → Adicionar à Tela de Início.
-- Depois abre em tela cheia, como aplicativo.
-- Funciona offline depois do primeiro carregamento.
-- Lançamentos ficam no próprio aparelho usando IndexedDB.
-- Não depende de Expo Go.
-- Não depende do computador ligado.
-- Não precisa Play Store nem App Store.
+## Novidades da V2
+- Áreas totalmente personalizáveis.
+- Crie novas áreas pelo próprio app, por exemplo: Escola, Família, Viagem, Fazenda etc.
+- Renomeie áreas existentes.
+- Exclua áreas que ainda não possuem lançamentos.
+- Categorias de receita e despesa totalmente personalizáveis.
+- Crie, renomeie e exclua categorias pelo próprio app.
+- Novo ícone premium Meu Caixa.
+- Mesmo app e mesmas funções no iOS e Android.
+- Continua funcionando online e offline.
+- Continua com PWA instalável pela tela inicial.
+- Mantém Lançamento Flash, transferências, histórico, resumo, recorrentes e backup.
 
-## Recursos incluídos
-- Pessoal / Trabalho / Sítio / Tudo
-- Receita e despesa
-- Lançamento Flash
-- Transferência entre áreas
-- Histórico e busca
-- Editar e excluir
-- Resumo por categoria
-- Lançamentos recorrentes
-- Exportar/importar backup em JSON
-- Cache offline via Service Worker
-
-## Hospedagem
-Envie TODO o conteúdo desta pasta para uma pasta do domínio já usado no outro app.
-
-Exemplo:
-https://SEU-DOMINIO/meu-caixa/
-
-Importante:
-- O endereço precisa usar HTTPS para o modo offline/PWA funcionar corretamente.
-- Os caminhos do projeto são relativos, então ele pode ficar em uma subpasta sem alterações.
-- Depois de abrir uma vez com internet, adicione à Tela de Início.
+## Atualização no GitHub Pages
+Substitua os arquivos do repositório pelos arquivos desta pasta.
+O arquivo `sw.js` usa um novo cache (`meu-caixa-pessoal-v2`), então o app atualizará os arquivos offline.
 
 ## iPhone
-1. Abra o link no Safari.
-2. Toque no botão Compartilhar.
-3. Toque em "Adicionar à Tela de Início".
-4. Confirme "Adicionar".
-5. Abra pelo ícone Meu Caixa.
+Safari → Compartilhar → Adicionar à Tela de Início.
+
+## Android
+Chrome → menu ⋮ → Instalar app / Adicionar à tela inicial.
 
 ## Dados
-Os dados desta versão ficam no navegador/PWA deste aparelho. Apagar os dados do Safari, remover dados do site ou restaurar o iPhone pode apagá-los. Use "Exportar backup" periodicamente.
-
-### Importante sobre a V5 do Expo
-Os dados salvos dentro do Expo Go não migram automaticamente para esta versão web, pois são armazenamentos diferentes. Para poucos lançamentos, a forma mais simples é relançá-los. Se necessário, pode ser criada uma exportação específica da V5 Expo para migrar os dados.
+Os lançamentos permanecem no armazenamento do navegador/PWA do aparelho.
+Recomendado usar Exportar backup periodicamente.

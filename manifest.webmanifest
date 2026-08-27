@@ -1,7 +1,7 @@
 {
   "name": "Meu Caixa Pessoal",
   "short_name": "Meu Caixa",
-  "description": "Controle pessoal de receitas e despesas, rápido e offline.",
+  "description": "Controle pessoal premium de receitas e despesas.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
