@@ -29,6 +29,23 @@
   const brl = cents => new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"}).format((Number(cents)||0)/100);
   const nowIso = () => new Date().toISOString();
   const id = () => `${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
+  function localDateIso(dateStr){
+    const [y,m,d]=String(dateStr).split("-").map(Number);
+    const dt=new Date(y,m-1,d,12,0,0,0);
+    return dt.toISOString();
+  }
+  function addMonthsLocal(date, months){
+    const d=new Date(date);
+    const day=d.getDate();
+    const target=new Date(d.getFullYear(),d.getMonth()+months,1,12,0,0,0);
+    const last=new Date(target.getFullYear(),target.getMonth()+1,0).getDate();
+    target.setDate(Math.min(day,last));
+    return target;
+  }
+  function dateInputValue(d=new Date()){
+    const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());
+    return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`;
+  }
 
   function parseMoney(v){
     let s = String(v ?? "").trim().replace(/[^\d,.-]/g,"");
@@ -137,7 +154,11 @@
     return all.filter(x=>x.area===area || (x.type==="transfer" && x.destination_area===area));
   }
   async function summary(area=currentArea){
-    const rows=(currentScreen==="Movements" || currentScreen==="Summary") ? await filteredTransactionsForMonth(area) : await filteredTransactions(area);
+    let rows=(currentScreen==="Movements" || currentScreen==="Summary") ? await filteredTransactionsForMonth(area) : await filteredTransactions(area);
+    if(currentScreen==="Home"){
+      const now=Date.now();
+      rows=rows.filter(r=>new Date(r.created_at).getTime()<=now);
+    }
     let income=0,expense=0;
     for(const r of rows){
       if(r.type==="income") income+=r.amount_cents;
@@ -196,6 +217,9 @@
     let amount=(t.type==="transfer"?"":sign+" ")+brl(t.amount_cents);
     let area=t.type==="transfer"?`${t.area} → ${t.destination_area}`:t.area;
     let note=t.note?` • ${escapeHtml(t.note)}`:"";
+    if(t.installment_group_id && t.installment_number && t.installment_total){
+      note += ` • Parcela ${t.installment_number}/${t.installment_total}`;
+    }
     return `<button class="tx" data-id="${t.id}" type="button">
       <span class="tx-main"><span class="tx-title">${escapeHtml(t.category)}</span><span class="tx-meta">${area} • ${fmtDate(t.created_at)}${note}</span></span>
       <span class="tx-amount ${cls}">${amount}</span>
@@ -214,7 +238,8 @@
 
     const allRows=await filteredTransactions();
     const monthRows=await filteredTransactionsForMonth();
-    $("#recentList").innerHTML=allRows.length?allRows.slice(0,4).map(txHtml).join(""):`<div class="empty">Nenhum lançamento ainda.</div>`;
+    const currentRows=allRows.filter(r=>new Date(r.created_at).getTime()<=Date.now());
+    $("#recentList").innerHTML=currentRows.length?currentRows.slice(0,4).map(txHtml).join(""):`<div class="empty">Nenhum lançamento ainda.</div>`;
 
     const q=$("#searchInput")?.value?.trim().toLowerCase()||"";
     const found=q?monthRows.filter(t=>`${t.category} ${t.note||""} ${t.amount_cents}`.toLowerCase().includes(q)):monthRows;
@@ -226,6 +251,7 @@
     $("#categorySummary").innerHTML=cats.length?cats.map(([n,v])=>`<div class="cat-sum"><span>${escapeHtml(n)}</span><strong>${brl(v)}</strong></div>`).join(""):`<div class="empty">Sem despesas nesta área.</div>`;
 
     await renderRotativo();
+    await renderInstallmentsOpen();
     const rec=(await getAll("recurring")).sort((a,b)=>a.day_of_month-b.day_of_month);
     $("#recurringList").innerHTML=rec.length?rec.map(r=>`<button class="tx recurring-item" data-rec-id="${r.id}" type="button"><span class="tx-main"><span class="tx-title">${escapeHtml(r.category)}</span><span class="tx-meta">${r.area} • dia ${r.day_of_month} • ${r.active===false?"Pausado":"Ativo"}</span></span><span class="tx-amount ${r.type}">${r.type==="income"?"+":"−"} ${brl(r.amount_cents)}</span></button>`).join(""):`<div class="empty">Nenhum recorrente cadastrado.</div>`;
   }
@@ -306,15 +332,22 @@
 
   async function exportBackup(){
     const data={
-      app:"Meu Caixa Pessoal",version:1,exported_at:nowIso(),
+      app:"Meu Caixa Pessoal",
+      version:5,
+      exported_at:nowIso(),
       transactions:await getAll("transactions"),
-      recurring:await getAll("recurring")
+      recurring:await getAll("recurring"),
+      rotativo:await getAll("rotativo"),
+      settings:await getAll("settings")
     };
     const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
     const url=URL.createObjectURL(blob);
-    const a=document.createElement("a");a.href=url;a.download=`meu-caixa-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();
+    const a=document.createElement("a");
+    a.href=url;
+    a.download=`meu-caixa-backup-v5-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
     setTimeout(()=>URL.revokeObjectURL(url),1000);
-    $("#backupInfo").textContent="Backup exportado agora.";
+    $("#backupInfo").textContent="Backup completo exportado agora.";
   }
 
   async function importBackup(file){
@@ -324,9 +357,127 @@
       if(!confirm("Importar este backup? Lançamentos com o mesmo ID serão atualizados."))return;
       for(const r of data.transactions) await put("transactions",r);
       for(const r of (data.recurring||[])) await put("recurring",r);
-      $("#backupInfo").textContent="Backup importado com sucesso.";
+      for(const r of (data.rotativo||[])) await put("rotativo",r);
+      for(const r of (data.settings||[])) await put("settings",r);
+      await loadCustomStructure();
+      renderAreaTabs();
+      refreshSelects();
+      $("#backupInfo").textContent="Backup completo importado com sucesso.";
       await refreshAll();
-    }catch(e){alert("Não foi possível importar esse backup.");}
+    }catch(e){
+      console.error(e);
+      alert("Não foi possível importar esse backup.");
+    }
+  }
+
+  function installmentGroups(rows){
+    const map=new Map();
+    rows.filter(r=>r.type==="expense" && r.installment_group_id).forEach(r=>{
+      if(!map.has(r.installment_group_id)) map.set(r.installment_group_id,[]);
+      map.get(r.installment_group_id).push(r);
+    });
+    return [...map.entries()].map(([group_id,items])=>{
+      items.sort((a,b)=>new Date(a.created_at)-new Date(b.created_at));
+      return {group_id,items};
+    });
+  }
+
+  async function renderInstallmentsOpen(){
+    const rows=await filteredTransactions();
+    const groups=installmentGroups(rows);
+    const now=Date.now();
+    const open=groups.map(g=>{
+      const future=g.items.filter(r=>new Date(r.created_at).getTime()>now);
+      const dueOrPast=g.items.length-future.length;
+      const remaining=future.reduce((s,r)=>s+r.amount_cents,0);
+      const next=future[0]||null;
+      const first=g.items[0];
+      return {...g,future,dueOrPast,remaining,next,first};
+    }).filter(g=>g.future.length>0)
+      .sort((a,b)=>new Date(a.next.created_at)-new Date(b.next.created_at));
+
+    const el=$("#installmentOpenList");
+    if(!el)return;
+    el.innerHTML=open.length?open.map(g=>{
+      const total=g.items.length;
+      const paid=Math.min(g.dueOrPast,total);
+      const pct=Math.round((paid/total)*100);
+      const title=g.first.installment_title || g.first.note || g.first.category || "Compra parcelada";
+      return `<div class="parcel-card">
+        <div class="parcel-card-top">
+          <div><div class="parcel-card-title">${escapeHtml(title)}</div>
+          <div class="parcel-card-meta">${escapeHtml(g.first.area)} • ${escapeHtml(g.first.category)}</div></div>
+          <div class="parcel-card-value">${brl(g.remaining)}<div class="parcel-card-meta">restante</div></div>
+        </div>
+        <div class="parcel-progress"><span style="width:${pct}%"></span></div>
+        <div class="parcel-card-foot">
+          <span>${paid}/${total} parcelas no período atual/passado</span>
+          <span>Próxima: ${new Date(g.next.created_at).toLocaleDateString("pt-BR")}</span>
+        </div>
+      </div>`;
+    }).join(""):`<div class="empty">Nenhum parcelamento em aberto.</div>`;
+  }
+
+  function fillInstallmentCategories(){
+    const el=$("#installmentCategory");
+    if(!el)return;
+    el.innerHTML=EXPENSE_CATS.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+  }
+
+  function updateInstallmentPreview(){
+    const total=parseMoney($("#installmentTotal")?.value||"");
+    const count=Math.max(2,Math.min(60,Number($("#installmentCount")?.value)||2));
+    const el=$("#installmentPreview");
+    if(!el)return;
+    if(total<=0){el.textContent="—";return;}
+    const base=Math.floor(total/count), rem=total%count;
+    const min=base, max=base+(rem?1:0);
+    el.textContent=min===max ? `${count}x de ${brl(base)}` : `${count}x de aproximadamente ${brl(Math.round(total/count))}`;
+  }
+
+  function openInstallment(){
+    $("#installmentTotal").value="";
+    $("#installmentCount").value="10";
+    const d=new Date();
+    d.setMonth(d.getMonth()+1);
+    $("#installmentFirstDate").value=dateInputValue(d);
+    fillAreaSelect($("#installmentArea"),currentArea==="Tudo"?AREAS[0]:currentArea);
+    fillInstallmentCategories();
+    $("#installmentNote").value="";
+    updateInstallmentPreview();
+    openModal("installmentModal");
+    setTimeout(()=>$("#installmentTotal").focus(),180);
+  }
+
+  async function saveInstallment(){
+    const total=parseMoney($("#installmentTotal").value);
+    const count=Math.max(2,Math.min(60,Number($("#installmentCount").value)||0));
+    const firstDate=$("#installmentFirstDate").value;
+    const area=$("#installmentArea").value;
+    const category=$("#installmentCategory").value;
+    const title=$("#installmentNote").value.trim() || category;
+    if(total<=0){alert("Informe o valor total da compra.");return;}
+    if(count<2){alert("Informe pelo menos 2 parcelas.");return;}
+    if(!firstDate){alert("Informe a data da primeira parcela.");return;}
+    const group=id();
+    const base=Math.floor(total/count);
+    const remainder=total%count;
+    const start=new Date(localDateIso(firstDate));
+
+    for(let i=0;i<count;i++){
+      const due=addMonthsLocal(start,i);
+      const cents=base+(i<remainder?1:0);
+      const row={
+        id:id(),type:"expense",amount_cents:cents,area,destination_area:null,category,
+        note:title,created_at:due.toISOString(),updated_at:nowIso(),deleted_at:null,
+        installment_group_id:group,installment_number:i+1,installment_total:count,
+        installment_total_cents:total,installment_title:title
+      };
+      await put("transactions",row);
+    }
+    closeModal();
+    await refreshAll();
+    alert(`Parcelamento criado: ${count} parcelas.`);
   }
 
   async function saveRecurring(){
@@ -441,6 +592,8 @@
     fillAreaSelect($("#editArea"), $("#editArea").value || AREAS[0]);
     fillAreaSelect($("#recArea"), $("#recArea").value || AREAS[0]);
     fillAreaSelect($("#rotActionArea"), $("#rotActionArea").value || AREAS[0]);
+    fillAreaSelect($("#installmentArea"), $("#installmentArea")?.value || AREAS[0]);
+    fillInstallmentCategories();
   }
 
 
@@ -522,6 +675,8 @@
     fillAreaSelect($("#editArea"),AREAS[0]);
     fillAreaSelect($("#recArea"),AREAS[0]);
     fillAreaSelect($("#rotActionArea"),AREAS[0]);
+    fillAreaSelect($("#installmentArea"),AREAS[0]);
+    fillInstallmentCategories();
 
     window.addEventListener("online",setStatus);
     window.addEventListener("offline",setStatus);
@@ -535,6 +690,12 @@
     $("#incomeBtn").addEventListener("click",()=>openEntry("income"));
     $("#expenseBtn").addEventListener("click",()=>openEntry("expense"));
     $("#flashBtn").addEventListener("click",()=>openEntry("expense"));
+    $("#installmentBtn").addEventListener("click",openInstallment);
+    $("#addInstallmentBtn").addEventListener("click",openInstallment);
+    $("#installmentTotal").addEventListener("input",updateInstallmentPreview);
+    $("#installmentCount").addEventListener("input",updateInstallmentPreview);
+    $("#saveInstallmentBtn").addEventListener("click",saveInstallment);
+
     $("#transferBtn").addEventListener("click",()=>{
       fillAreaSelect($("#transferFrom"),currentArea==="Tudo"?AREAS[0]:currentArea);
       fillAreaSelect($("#transferTo"),AREAS.find(a=>a!==$("#transferFrom").value)||AREAS[0]);

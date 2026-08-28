@@ -60,6 +60,12 @@
         </button>
       </section>
 
+      <button id="installmentBtn" class="installment-home-btn" type="button">
+        <span class="quick-icon">▦</span>
+        <span><strong>Compra parcelada</strong><small>Cadastre uma vez e distribua nos próximos meses</small></span>
+        <b>＋</b>
+      </button>
+
       <section class="section">
         <div class="section-head"><h2>Últimos lançamentos</h2><button id="seeAllBtn" type="button">Ver todos</button></div>
         <div id="recentList" class="tx-list"></div>
@@ -99,6 +105,11 @@
       <section class="section">
         <div class="section-head"><h2>Gastos por categoria</h2></div>
         <div id="categorySummary" class="category-summary"></div>
+      </section>
+
+      <section class="section">
+        <div class="section-head"><h2>Parcelamentos em aberto</h2><button id="addInstallmentBtn" type="button">＋ Compra</button></div>
+        <div id="installmentOpenList" class="tx-list"></div>
       </section>
 
       <section class="section">
@@ -188,6 +199,35 @@
         <button id="deleteTxBtn" class="danger-outline" type="button">Excluir</button>
         <button id="saveEditBtn" class="primary-btn" type="button">Salvar</button>
       </div>
+    </section>
+
+    <section id="installmentModal" class="modal-card hidden">
+      <div class="modal-head">
+        <div><small>Despesa futura</small><h3>Nova compra parcelada</h3></div>
+        <button class="icon-btn" data-close-modal type="button">×</button>
+      </div>
+
+      <label class="amount-field">
+        <span>Valor total da compra</span>
+        <div><b>R$</b><input id="installmentTotal" inputmode="decimal" placeholder="0,00" autocomplete="off" /></div>
+      </label>
+
+      <div class="parcel-grid">
+        <label><span>Quantidade de parcelas</span><input id="installmentCount" type="number" min="2" max="60" value="10" /></label>
+        <label><span>Primeiro vencimento</span><input id="installmentFirstDate" type="date" /></label>
+      </div>
+
+      <div class="field-group"><span>Área</span><select id="installmentArea"></select></div>
+      <div class="field-group"><span>Categoria</span><select id="installmentCategory"></select></div>
+      <input id="installmentNote" type="text" placeholder="Ex.: Sofá da sala" maxlength="100" />
+
+      <div class="parcel-preview">
+        <span>Previsão</span>
+        <strong id="installmentPreview">—</strong>
+        <small>As parcelas serão lançadas automaticamente nos respectivos meses.</small>
+      </div>
+
+      <button id="saveInstallmentBtn" class="primary-btn" type="button">Criar parcelamento</button>
     </section>
 
     <section id="recurringModal" class="modal-card hidden">
